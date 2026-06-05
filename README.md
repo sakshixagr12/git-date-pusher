@@ -135,6 +135,18 @@ Feel free to open issues or pull requests.  Suggestions for new UI features, add
 
 ---
 
+## Safety Notice
+
+⚠️ This tool modifies commit timestamps and Git history structure. Use only on repositories you own or have explicit permission to modify.
+
+---
+
+## Permissions & Access
+
+This tool does not bypass GitHub permissions. All push and merge rights depend on repository settings and collaborator access. Users must have write access to the target repository.
+
+
+
 ## 📄 License
 
 MIT © 2026 Sakshi Agrahari
