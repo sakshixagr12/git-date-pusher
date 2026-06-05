@@ -93,7 +93,7 @@ README.md    → Update project documentation
 
 ## 📸 Screenshots
 
-> *Replace the placeholders with actual screenshots from your terminal.*
+
 
 | Step | Screenshot |
 |------|------------|
