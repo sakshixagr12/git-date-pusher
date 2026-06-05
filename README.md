@@ -25,7 +25,7 @@ A lightweight command‑line tool that lets you create **date‑stamped commits*
 
 ```bash
 # Clone the repository (or copy the folder into your workspace)
-git clone https://github.com/your‑username/git-date-pusher.git
+git clone https://github.com/sakshixagr12/git-date-pusher.git
 cd git-date-pusher
 
 # Create a virtual environment
