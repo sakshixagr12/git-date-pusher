@@ -93,3 +93,14 @@ def push_to_github(repo: Repo, branch: str) -> None:
     except GitCommandError as e:
         print(f"❌ Push failed: {e}", file=sys.stderr)
         raise
+
+def get_current_branch(folder: Path) -> str:
+    """Return the name of the currently checked‑out branch for *folder*.
+    Raises a ValueError if the repository is in a detached HEAD state.
+    """
+    repo = ensure_git_repo(folder)
+    try:
+        return repo.active_branch.name
+    except TypeError:
+        # repo.active_branch is None when HEAD is detached
+        raise ValueError("Repository is in a detached HEAD state; no active branch.")
