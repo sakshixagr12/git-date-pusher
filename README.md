@@ -11,7 +11,7 @@ A lightweight command‑line tool that lets you create **date‑stamped commits*
 - 📂 **Recursive file scanning** – skips the `.git` directory automatically.
 - 📅 **Flexible date handling** – choose a single date for all files or a different date per file.
 - 🚀 **One‑click push** – all commits are pushed in a single operation.
-- 🎨 **Rich terminal UI** – colorful banners, progress bars, and summaries.
+- 🎨 **Rich terminal output and summaries.**
 - 🛠️ **Modular design** – cleanly separated modules (`file_scanner`, `date_handler`, `git_utils`).
 - 🔀 **Automatic branch detection** – the tool uses the currently checked‑out Git branch (no automatic creation, renaming, or switching of branches).
 - ✉️ **Automatic commit message generation** – messages are generated based on file type.
@@ -106,28 +106,26 @@ README.md    → Update project documentation
 ## 📝 Example Workflow
 
 ```bash
-# 1️⃣ Start the tool in the folder you want to back‑date
-python main.py -d /path/to/my/project -r https://github.com/me/my‑project.git --auto-message
+# 1️⃣ Start the tool
+python main.py -d /path/to/my/project -r https://github.com/me/my-project.git --auto-message
 
-# 2️⃣ Choose "2" for a single date for all files
-#    → Enter the start date: 2024‑01‑01
-#    → Enter the end date:   2024‑02‑01
-#    → The tool will create an evenly‑spaced schedule for the 20 files.
+# 2️⃣ Choose mode "1" (date per file) or "2" (one date for all files)
+#    → Enter date: 2024-01-15
 
 # 3️⃣ With `--auto-message` the generated commit messages are accepted automatically.
 
-# 4️⃣ When the progress bar finishes, the tool pushes everything:
-🚀 Pushed branch 'main' (detected) to origin.
+# 4️⃣ The tool commits each file and pushes:
+🚀 Push completed successfully.
 
-# 5️⃣ A summary table is shown:
-┌─────────────────────┬───────────────┐
-│ Total files          │ 20            │
-│ Successful commits   │ 20            │
-│ Failed commits       │ 0             │
-└─────────────────────┴───────────────┘
+# 5️⃣ A summary is shown:
+=== Commit Summary ===
+✅ Successful commits:
+  - index.html
+  - style.css
+  - app.js
 ```
 
-That’s it – you now have a repository whose history spans the chosen date range!
+That's it – you now have a repository with back‑dated commits!
 
 ---
 
