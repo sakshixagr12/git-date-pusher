@@ -17,6 +17,68 @@ def welcome() -> None:
     console.print(Panel(banner, title="🚀", subtitle="Ready to push your commits", expand=False))
 
 
+def display_commit_mode_menu() -> int:
+    """Show the commit mode selection menu and return the chosen option (1, 2, or 3)."""
+    menu_text = "Select Commit Mode"
+    options = [
+        "[1] Commit all files\n    Commit every discovered file",
+        "[2] Commit selected files\n    Choose multiple files from a list",
+        "[3] Commit a single file\n    Commit one specific file",
+    ]
+    panel = Panel.fit("\n".join(options), title=menu_text, border_style="bright_blue")
+    console.print(panel)
+    while True:
+        choice = console.input("Choice: ")
+        if choice in {"1", "2", "3"}:
+            return int(choice)
+        console.print("[red]Invalid choice. Please enter 1, 2, or 3.[/red]")
+
+
+def choose_multiple_files(files: List[Path]) -> List[Path]:
+    """Display a numbered table of files and let the user select multiple via comma-separated numbers.
+
+    Returns the list of selected Path objects.
+    """
+    table = Table(title="Files Found", show_header=False)
+    table.add_column("No.")
+    table.add_column("File")
+    for i, f in enumerate(files, start=1):
+        table.add_row(str(i), f.name)
+    console.print(table)
+    while True:
+        raw = console.input("Enter file numbers (comma separated): ")
+        try:
+            indices = [int(x.strip()) for x in raw.split(",") if x.strip()]
+            selected = [files[i - 1] for i in indices]
+            return selected
+        except Exception:
+            console.print("[red]Invalid input. Please enter numbers separated by commas.[/red]")
+
+
+def choose_single_file(files: List[Path]) -> List[Path]:
+    """Display a numbered table of files and let the user select a single file.
+
+    Returns a list containing the selected Path.
+    """
+    table = Table(title="Files Found", show_header=False)
+    table.add_column("No.")
+    table.add_column("File")
+    for i, f in enumerate(files, start=1):
+        table.add_row(str(i), f.name)
+    console.print(table)
+    while True:
+        raw = console.input("Enter file number: ")
+        try:
+            idx = int(raw.strip())
+            if 1 <= idx <= len(files):
+                return [files[idx - 1]]
+            else:
+                raise ValueError()
+        except Exception:
+            console.print("[red]Invalid input. Please enter a valid number.[/red]")
+
+
+
 def status(msg: str, success: bool = True) -> None:
     """Print a colored status line.
 
@@ -75,7 +137,8 @@ def summary(total: int, successes: int) -> None:
     console.print(tbl)
 
 if __name__ == "__main__":
-    # Simple demo when run directly
+    # The rich_interface module is primarily for UI utilities.
+    # Running this file directly demonstrates the welcome banner.
     welcome()
     status("Demo mode – no real Git actions performed.")
     sys.exit(0)
