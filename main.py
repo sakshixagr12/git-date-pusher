@@ -66,8 +66,26 @@ def main():
     parser.add_argument("-b", "--branch", help="Target branch (defaults to current branch)")
     parser.add_argument("--dry-run", action="store_true", help="Show actions without modifying the repository")
     parser.add_argument("--auto-message", action="store_true", help="Automatically accept generated commit messages without prompting")
+    parser.add_argument("-f", "--force", action="store_true", help="Force push to the remote repository")
     parser.add_argument("-m", "--mode", choices=["1", "2"], default="1", help="1: date per file, 2: one date for all")
+    # Smart default flags – mutually exclusive
+    smart_group = parser.add_mutually_exclusive_group()
+    smart_group.add_argument("--now", action="store_true", help="Use current date and time")
+    smart_group.add_argument("--today", action="store_true", help="Use today at 12:00:00")
+    smart_group.add_argument("--yesterday", action="store_true", help="Use yesterday at 12:00:00")
+    smart_group.add_argument("--last-week", action="store_true", help="Use date 7 days ago at 12:00:00")
     args = parser.parse_args()
+
+    # Determine which smart flag (if any) was provided
+    smart_flag = None
+    if getattr(args, "now", False):
+        smart_flag = "--now"
+    elif getattr(args, "today", False):
+        smart_flag = "--today"
+    elif getattr(args, "yesterday", False):
+        smart_flag = "--yesterday"
+    elif getattr(args, "last_week", False):
+        smart_flag = "--last-week"
 
     # Resolve directory
     folder = args.directory or Path(Prompt.ask("📁 Folder path (absolute)")).resolve()
@@ -105,12 +123,12 @@ def main():
     # Shared date handling when CLI mode flag "-m 2" is used
     shared_date = None
     if args.mode == "2":
-        shared_date = get_valid_datetime("📅 Date for all files")
+        shared_date = get_valid_datetime("📅 Date for all files", smart_flag=smart_flag)
 
     # Build commit plan
     commits = []
     for file_path in files_to_process:
-        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {file_path.name}")
+        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {file_path.name}", smart_flag=smart_flag)
         generated_msg = generate_commit_message(file_path)
         if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}'?", default=True):
             msg = generated_msg
@@ -144,8 +162,8 @@ def main():
 
     if not args.dry_run:
         try:
-            push_branch(folder, branch)
-            console.print("🚀 Push completed successfully.", style="green")
+            push_branch(folder, branch, force=args.force)
+            console.print(f"🚀 Push completed successfully.{' (forced)' if args.force else ''}", style="green")
         except GitCommandError as e:
             console.print(f"❌ Push failed: {e}", style="red")
 

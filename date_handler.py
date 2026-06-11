@@ -60,11 +60,16 @@ def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, def
 
     # Interactive mode – ask the user for date and optional time
     while True:
-        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD)", default=default)
+        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD or 'today', 'now', 'yesterday')", default=default)
         if not date_str:
             # Empty input (user pressed Enter) – ask again
             console.print("[red]Date cannot be empty. Please provide a date in YYYY-MM-DD format.[/red]")
             continue
+            
+        date_str_lower = date_str.strip().lower()
+        if date_str_lower in {"now", "today", "yesterday", "last-week"}:
+            return get_valid_datetime(prompt_msg, smart_flag="--" + date_str_lower, default=default)
+            
         try:
             _parse_date(date_str)
         except ValueError:

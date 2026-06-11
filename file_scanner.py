@@ -42,18 +42,41 @@ def _load_gitignore(folder: Path) -> PathSpec:
 
 
 def scan_files(folder: Path) -> List[Path]:
-    """Return a list of file paths that would be tracked by Git.
-
-    The function walks ``folder`` recursively while:
-
-    * Skipping the ``.git`` directory (always excluded).
-    * Respecting patterns from the repository's ``.gitignore`` file if present.
-    * Applying a set of sensible default ignore patterns for common artefacts
-      (e.g., virtual environments, caches, ``node_modules``) when no ``.gitignore``
-      exists.
-
-    Returned paths are absolute ``Path`` objects.
+    """Return a list of file paths that have changes (untracked or modified).
+    
+    If the directory is a git repository, it uses git to find changed files.
+    Otherwise, it falls back to walking the directory and applying ignore rules.
     """
+    try:
+        from git import Repo, InvalidGitRepositoryError
+        repo = Repo(folder)
+        changed_files = set()
+        
+        # Untracked files
+        for item in repo.untracked_files:
+            changed_files.add(folder / item)
+            
+        # Modified or deleted files (not staged)
+        for item in repo.index.diff(None):
+            if item.a_path:
+                changed_files.add(folder / item.a_path)
+                
+        # Staged files
+        try:
+            for item in repo.index.diff("HEAD"):
+                if item.a_path:
+                    changed_files.add(folder / item.a_path)
+        except Exception:
+            pass # HEAD might not exist yet in a fresh repo
+            
+        # Filter to ensure we only return existing files (ignoring deleted ones)
+        files = [p for p in changed_files if p.is_file()]
+        # Sort for deterministic output
+        return sorted(files)
+    except Exception:
+        # Fallback if not a valid git repository or gitpython fails
+        pass
+
     # Prepare the ignore matcher; fall back gracefully if ``pathspec`` is missing.
     spec = _load_gitignore(folder) if PathSpec is not None else None
 

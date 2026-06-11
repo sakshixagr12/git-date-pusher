@@ -18,10 +18,10 @@ def commit_file(folder: Path, file_path: Path, commit_message: str, commit_date:
     repo = ensure_git_repo(folder)
     commit_file_internal(repo, file_path, commit_message, commit_date)
 
-def push_branch(folder: Path, branch: str) -> None:
+def push_branch(folder: Path, branch: str, force: bool = False) -> None:
     """Push *branch* from the repo in *folder* to its 'origin' remote."""
     repo = ensure_git_repo(folder)
-    push_to_github(repo, branch)
+    push_to_github(repo, branch, force)
 
 # Internal helper implementations
 
@@ -78,18 +78,20 @@ def commit_file_internal(repo: Repo, file_path: Path, commit_message: str, commi
             "GIT_AUTHOR_DATE": f"{commit_date}T12:00:00",
             "GIT_COMMITTER_DATE": f"{commit_date}T12:00:00",
         }
-        repo.git.commit('-m', commit_message, env=env)
+        repo.git.commit('--allow-empty', '-m', commit_message, env=env)
         print(f"✅ Committed {file_path.name} with date {commit_date}")
     except GitCommandError as e:
         print(f"❌ Commit failed: {e}", file=sys.stderr)
         raise
 
-def push_to_github(repo: Repo, branch: str) -> None:
+def push_to_github(repo: Repo, branch: str, force: bool = False) -> None:
     """Push *branch* to the 'origin' remote on GitHub."""
     try:
-        origin = repo.remote(name='origin')
-        origin.push(refspec=branch)
-        print(f"🚀 Pushed branch '{branch}' to origin.")
+        if force:
+            repo.git.push('origin', branch, '--force')
+        else:
+            repo.git.push('origin', branch)
+        print(f"🚀 Pushed branch '{branch}' to origin{' (force)' if force else ''}.")
     except GitCommandError as e:
         print(f"❌ Push failed: {e}", file=sys.stderr)
         raise
