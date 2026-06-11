@@ -1,6 +1,6 @@
 # Pure core date handling (no UI)
 import datetime
-from typing import List
+from typing import List, Optional
 from rich.prompt import Prompt
 from rich.console import Console
 
@@ -20,14 +20,47 @@ def _format_noon(date_obj: datetime.date) -> str:
 def get_today_str() -> str:
     """Return today's date at noon (``YYYY-MM-DD 12:00:00``)."""
     return _format_noon(datetime.date.today())
-def get_valid_datetime(prompt_msg: str) -> str:
-    """Prompt for a date and optional time, returning ``YYYY-MM-DD HH:MM:SS``.
+def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, default: Optional[str] = None) -> str:
+    """Prompt for a date and optional time, or return a smart default.
 
-    The function repeatedly asks until both inputs are valid. If the time
-    input is left blank, it defaults to ``12:00:00``.
+    Parameters
+    ----------
+    prompt_msg : str
+        Message displayed when falling back to manual input.
+    smart_flag : Optional[str]
+        One of '--now', '--today', '--yesterday', '--last-week'. If provided,
+        the function returns the corresponding datetime string without prompting.
+        Only a single flag should be supplied.
+    default : Optional[str]
+        Optional default date string for manual mode (used by tests).
+
+    Returns
+    -------
+    str
+        A datetime string in the format ``YYYY-MM-DD HH:MM:SS``.
     """
+    # Smart Defaults Mode
+    if smart_flag:
+        allowed = {"--now", "--today", "--yesterday", "--last-week"}
+        if smart_flag not in allowed:
+            raise ValueError(f"Unsupported smart flag: {smart_flag}")
+        now_dt = datetime.datetime.now()
+        if smart_flag == "--now":
+            return now_dt.strftime("%Y-%m-%d %H:%M:%S")
+        # For the remaining flags we keep the default time 12:00:00
+        if smart_flag == "--today":
+            target_date = now_dt.date()
+        elif smart_flag == "--yesterday":
+            target_date = (now_dt - datetime.timedelta(days=1)).date()
+        elif smart_flag == "--last-week":
+            target_date = (now_dt - datetime.timedelta(days=7)).date()
+        else:
+            target_date = now_dt.date()
+        return f"{target_date.isoformat()} 12:00:00"
+
+    # Interactive mode – ask the user for date and optional time
     while True:
-        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD)")
+        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD)", default=default)
         try:
             _parse_date(date_str)
         except ValueError:
