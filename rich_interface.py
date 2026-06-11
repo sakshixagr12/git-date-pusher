@@ -1,12 +1,14 @@
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.progress import Progress, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.table import Table
+from rich.align import Align
+from rich.prompt import Prompt, Confirm
 
 console = Console()
 
@@ -126,6 +128,42 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
 
             commit_file(folder, file_path, msg, commit_date)
             prog.update(task, advance=1)
+
+
+def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[Path, str, str]]) -> bool:
+    """Display a preview of the commits and ask for confirmation.
+
+    Args:
+        repo_name: Name of the repository (folder name).
+        branch: Target branch name.
+        commit_items: List of tuples (file_path, commit_message, commit_date).
+
+    Returns:
+        True if the user chooses to proceed, False otherwise.
+    """
+    # Prepare data strings
+    files = ", ".join([p.name for p, _, _ in commit_items])
+    messages = ", ".join([msg for _, msg, _ in commit_items])
+    dates = ", ".join([date for _, _, date in commit_items])
+    total = len(commit_items)
+
+    # Build a table with the preview information
+    table = Table(show_header=False, box=None)
+    table.add_row("Repository:", repo_name)
+    table.add_row("Branch:", branch)
+    table.add_row("Files Selected:", files or "(none)")
+    table.add_row("Commit Messages:", messages or "(none)")
+    table.add_row("Commit Dates:", dates or "(none)")
+    table.add_row("Total Commits:", str(total))
+
+    panel = Panel(
+        Align.center(table),
+        title="COMMIT PREVIEW",
+        border_style="bright_magenta",
+    )
+    console.print(panel)
+    # Ask for confirmation
+    return Confirm.ask("Proceed?", default=True)
 
 
 def summary(total: int, successes: int) -> None:

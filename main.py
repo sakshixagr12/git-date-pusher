@@ -9,7 +9,7 @@ from git import GitCommandError
 # Project utilities
 from git_utils import ensure_git_repo, set_remote, commit_file, push_branch, get_current_branch
 from file_scanner import scan_files
-from date_handler import get_today_str
+from date_handler import get_today_str, get_valid_date
 
 # Rich UI helpers
 from rich_interface import (
@@ -18,23 +18,10 @@ from rich_interface import (
     display_commit_mode_menu,
     choose_multiple_files,
     choose_single_file,
+    commit_preview,
     console,
 )
 from rich.prompt import Prompt, Confirm
-
-
-def get_valid_date(prompt: str) -> str:
-    """Prompt for a date in YYYY‑MM‑DD format, default today."""
-    while True:
-        user_input = Prompt.ask(prompt, default="").strip()
-        if not user_input:
-            return get_today_str()
-        try:
-            datetime.strptime(user_input, "%Y-%m-%d")
-            return user_input
-        except ValueError:
-            console.print("❌ Invalid date format. Please use YYYY‑MM‑DD.", style="red")
-
 
 def generate_commit_message(file_path: os.PathLike) -> str:
     """Generate a human‑readable commit message based on filename/extension.
@@ -69,7 +56,6 @@ def generate_commit_message(file_path: os.PathLike) -> str:
         return "Update project documentation"
     return f"Add {filename}"
 
-
 def main():
     # Welcome banner
     welcome()
@@ -99,6 +85,7 @@ def main():
     # Determine branch
     branch = args.branch or get_current_branch(folder)
 
+    # Scan files respecting .gitignore etc.
     all_files = scan_files(folder)
     if not all_files:
         console.print("No files found.", style="red")
@@ -120,8 +107,8 @@ def main():
     if args.mode == "2":
         shared_date = get_valid_date("📅 Date for all files")
 
-    successes, failures = [], []
-
+    # Build commit plan
+    commits = []
     for file_path in files_to_process:
         commit_date = shared_date if shared_date else get_valid_date(f"📅 Date for {file_path.name}")
         generated_msg = generate_commit_message(file_path)
@@ -129,6 +116,15 @@ def main():
             msg = generated_msg
         else:
             msg = Prompt.ask(f"💬 Commit message for {file_path.name}", default=f"Add {file_path.name}")
+        commits.append((file_path, msg, commit_date))
+
+    # Show preview and ask for confirmation
+    if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits):
+        console.print("❌ Process cancelled by user.", style="red")
+        return
+
+    successes, failures = [], []
+    for file_path, msg, commit_date in commits:
         if args.dry_run:
             console.print(f"[DRY RUN] Would commit {file_path.name} on {commit_date}")
             successes.append(str(file_path))
