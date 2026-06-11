@@ -9,7 +9,7 @@ from git import GitCommandError
 # Project utilities
 from git_utils import ensure_git_repo, set_remote, commit_file, push_branch, get_current_branch
 from file_scanner import scan_files
-from date_handler import get_today_str, get_valid_date
+from date_handler import get_today_str, get_valid_datetime
 
 # Rich UI helpers
 from rich_interface import (
@@ -105,12 +105,12 @@ def main():
     # Shared date handling when CLI mode flag "-m 2" is used
     shared_date = None
     if args.mode == "2":
-        shared_date = get_valid_date("📅 Date for all files")
+        shared_date = get_valid_datetime("📅 Date for all files")
 
     # Build commit plan
     commits = []
     for file_path in files_to_process:
-        commit_date = shared_date if shared_date else get_valid_date(f"📅 Date for {file_path.name}")
+        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {file_path.name}")
         generated_msg = generate_commit_message(file_path)
         if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}'?", default=True):
             msg = generated_msg

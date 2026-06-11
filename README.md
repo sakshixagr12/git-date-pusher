@@ -52,6 +52,8 @@ python main.py [options]
 | `-r`, `--remote` | GitHub repo URL (e.g. `https://github.com/user/repo.git`). |
 | `-b`, `--branch` | Target branch name – defaults to the **currently checked‑out branch**. |
 | `-m`, `--mode`   | `1` – date per file, `2` – one date for all files. |
+| `--time` | Enables optional time entry for commits (default 12:00:00). |
+
 | `--auto-message` | Automatically accept generated commit messages without prompting. |
 
 ### Automatic Commit Messages

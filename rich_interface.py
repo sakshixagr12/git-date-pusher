@@ -114,9 +114,9 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
             # Determine commit date based on mode
             if mode == 1:
                 # ask per file (reuse date_handler for prompting)
-                from date_handler import get_valid_date
-                commit_date = get_valid_date(
-                    f"📅 Date for {file_path.name} (YYYY-MM-DD, empty for today): "
+                from date_handler import get_valid_datetime
+                commit_date = get_valid_datetime(
+                    f"📅 Date for {file_path.name} (YYYY-MM-DD), Time (HH:MM:SS optional): "
                 )
             else:
                 commit_date = shared_date  # type: ignore
