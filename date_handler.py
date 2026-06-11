@@ -1,7 +1,10 @@
 # Pure core date handling (no UI)
 import datetime
 from typing import List
+from rich.prompt import Prompt
+from rich.console import Console
 
+console = Console()
 
 def _format_noon(date_obj: datetime.date) -> str:
     """Return a datetime string for the given date at 12:00:00.
@@ -17,7 +20,30 @@ def _format_noon(date_obj: datetime.date) -> str:
 def get_today_str() -> str:
     """Return today's date at noon (``YYYY-MM-DD 12:00:00``)."""
     return _format_noon(datetime.date.today())
+def get_valid_datetime(prompt_msg: str) -> str:
+    """Prompt for a date and optional time, returning ``YYYY-MM-DD HH:MM:SS``.
 
+    The function repeatedly asks until both inputs are valid. If the time
+    input is left blank, it defaults to ``12:00:00``.
+    """
+    while True:
+        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD)")
+        try:
+            _parse_date(date_str)
+        except ValueError:
+            console.print("[red]Invalid date format. Use YYYY-MM-DD.[/red]")
+            continue
+
+        time_str = Prompt.ask(f"{prompt_msg} (time HH:MM:SS, optional)", default="12:00:00")
+        if not time_str:
+            time_str = "12:00:00"
+        try:
+            _parse_time(time_str)
+        except ValueError:
+            console.print("[red]Invalid time format. Use HH:MM:SS.[/red]")
+            continue
+
+        return f"{date_str} {time_str}"
 
 def _parse_date(date_str: str) -> datetime.date:
     """Parse a ``YYYY-MM-DD`` string into a :class:`datetime.date`.
