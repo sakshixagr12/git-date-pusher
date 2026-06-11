@@ -99,7 +99,7 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
     This function expects the caller to have imported the commit function
     from ``git_utils``. It only handles the UI portion.
     """
-    from git_utils import commit_file  # Imported locally to avoid circular imports
+    from git_utils import commit_files  # Imported locally to avoid circular imports
 
     with Progress(
         "[progress.description]{task.description}",
@@ -126,23 +126,23 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
             if not msg:
                 msg = f"Add {file_path.name}"
 
-            commit_file(folder, file_path, msg, commit_date)
+            commit_files(folder, [file_path], msg, commit_date)
             prog.update(task, advance=1)
 
 
-def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[Path, str, str]]) -> bool:
+def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]]) -> bool:
     """Display a preview of the commits and ask for confirmation.
 
     Args:
         repo_name: Name of the repository (folder name).
         branch: Target branch name.
-        commit_items: List of tuples (file_path, commit_message, commit_date).
+        commit_items: List of tuples (file_paths, commit_message, commit_date).
 
     Returns:
         True if the user chooses to proceed, False otherwise.
     """
     # Prepare data strings
-    files = ", ".join([p.name for p, _, _ in commit_items])
+    files_str = ", ".join([f"{len(paths)} files" for paths, _, _ in commit_items])
     messages = ", ".join([msg for _, msg, _ in commit_items])
     dates = ", ".join([date for _, _, date in commit_items])
     total = len(commit_items)
@@ -151,7 +151,7 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[Path, s
     table = Table(show_header=False, box=None)
     table.add_row("Repository:", repo_name)
     table.add_row("Branch:", branch)
-    table.add_row("Files Selected:", files or "(none)")
+    table.add_row("Files Selected:", files_str or "(none)")
     table.add_row("Commit Messages:", messages or "(none)")
     table.add_row("Commit Dates:", dates or "(none)")
     table.add_row("Total Commits:", str(total))
@@ -166,6 +166,39 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[Path, s
     return Confirm.ask("Proceed?", default=True)
 
 
+def run_dry_preview(repo_state: dict) -> str:
+    """Format a step-by-step dry run execution preview without running commands.
+    
+    Expected repo_state keys:
+        - repo_name: str
+        - branch: str
+        - remote: str
+        - commits: List[Tuple[List[Path], str, str]] (file_paths, message, date)
+    """
+    lines = []
+    lines.append("=" * 60)
+    lines.append(" DRY RUN EXECUTION FLOW ".center(60, "="))
+    lines.append("=" * 60)
+    lines.append(f"Target Repository : {repo_state.get('repo_name')}")
+    lines.append(f"Target Branch     : {repo_state.get('branch')}")
+    lines.append(f"Target Remote     : {repo_state.get('remote')}")
+    lines.append("-" * 60)
+    
+    for idx, (f_paths, msg, date) in enumerate(repo_state.get('commits', []), start=1):
+        lines.append(f"Step {idx}: Commit Batch ({len(f_paths)} files)")
+        for p in f_paths:
+            lines.append(f"  [Staged] {p.name}")
+        lines.append(f"  [Action] git commit -m \"{msg}\"")
+        lines.append(f"  [Date]   {date}")
+        lines.append("-" * 60)
+        
+    lines.append("Final Step: Push")
+    lines.append(f"  [Action] git push {repo_state.get('remote')} {repo_state.get('branch')}")
+    lines.append("=" * 60)
+    lines.append(" END OF DRY RUN ".center(60, "="))
+    lines.append("=" * 60)
+    
+    return "\n".join(lines)
 def summary(total: int, successes: int) -> None:
     """Print a final summary table."""
     tbl = Table(title="Run Summary", show_header=False)

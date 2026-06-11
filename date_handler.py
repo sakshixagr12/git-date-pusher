@@ -1,5 +1,7 @@
 # Pure core date handling (no UI)
+import calendar
 import datetime
+import re
 from typing import List, Optional
 from rich.prompt import Prompt
 from rich.console import Console
@@ -20,6 +22,38 @@ def _format_noon(date_obj: datetime.date) -> str:
 def get_today_str() -> str:
     """Return today's date at noon (``YYYY-MM-DD 12:00:00``)."""
     return _format_noon(datetime.date.today())
+
+def resolve_natural_date(input_str: str) -> datetime.datetime:
+    """Resolve a natural language date string into a datetime object.
+    
+    Handles inputs like 'now', 'today', 'yesterday', 'last week', 
+    '2 days ago', 'end of month'. Includes local timezone awareness.
+    """
+    s = input_str.strip().lower()
+    
+    # Get timezone-aware local time
+    now = datetime.datetime.now().astimezone()
+    noon_today = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    
+    if s == "now":
+        return now
+    elif s == "today":
+        return noon_today
+    elif s == "yesterday":
+        return noon_today - datetime.timedelta(days=1)
+    elif s in ("last week", "last-week"):
+        return noon_today - datetime.timedelta(days=7)
+    elif s == "end of month":
+        last_day = calendar.monthrange(now.year, now.month)[1]
+        return noon_today.replace(day=last_day)
+        
+    match = re.match(r"^(\d+)\s+days?\s+ago$", s)
+    if match:
+        days = int(match.group(1))
+        return noon_today - datetime.timedelta(days=days)
+        
+    raise ValueError(f"Unable to parse natural date: '{input_str}'")
+
 def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, default: Optional[str] = None) -> str:
     """Prompt for a date and optional time, or return a smart default.
 
@@ -41,39 +75,31 @@ def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, def
     """
     # Smart Defaults Mode
     if smart_flag:
-        allowed = {"--now", "--today", "--yesterday", "--last-week"}
-        if smart_flag not in allowed:
+        flag_val = smart_flag.lstrip("-").replace("-", " ")
+        try:
+            dt = resolve_natural_date(flag_val)
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
             raise ValueError(f"Unsupported smart flag: {smart_flag}")
-        now_dt = datetime.datetime.now()
-        if smart_flag == "--now":
-            return now_dt.strftime("%Y-%m-%d %H:%M:%S")
-        # For the remaining flags we keep the default time 12:00:00
-        if smart_flag == "--today":
-            target_date = now_dt.date()
-        elif smart_flag == "--yesterday":
-            target_date = (now_dt - datetime.timedelta(days=1)).date()
-        elif smart_flag == "--last-week":
-            target_date = (now_dt - datetime.timedelta(days=7)).date()
-        else:
-            target_date = now_dt.date()
-        return f"{target_date.isoformat()} 12:00:00"
 
     # Interactive mode – ask the user for date and optional time
     while True:
-        date_str = Prompt.ask(f"{prompt_msg} (date YYYY-MM-DD or 'today', 'now', 'yesterday')", default=default)
+        date_str = Prompt.ask(f"{prompt_msg} (YYYY-MM-DD or natural phrase like 'yesterday', '2 days ago')", default=default)
         if not date_str:
             # Empty input (user pressed Enter) – ask again
-            console.print("[red]Date cannot be empty. Please provide a date in YYYY-MM-DD format.[/red]")
+            console.print("[red]Date cannot be empty. Please provide a date in YYYY-MM-DD format or natural phrase.[/red]")
             continue
             
-        date_str_lower = date_str.strip().lower()
-        if date_str_lower in {"now", "today", "yesterday", "last-week"}:
-            return get_valid_datetime(prompt_msg, smart_flag="--" + date_str_lower, default=default)
+        try:
+            dt = resolve_natural_date(date_str)
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            pass # Not a natural phrase, try standard parsing
             
         try:
             _parse_date(date_str)
         except ValueError:
-            console.print("[red]Invalid date format. Use YYYY-MM-DD.[/red]")
+            console.print("[red]Invalid date format. Use YYYY-MM-DD or a natural phrase (e.g. 'yesterday').[/red]")
             continue
 
         time_str = Prompt.ask(f"{prompt_msg} (time HH:MM:SS, optional)", default="12:00:00")

@@ -7,7 +7,7 @@ from datetime import datetime
 from git import GitCommandError
 
 # Project utilities
-from git_utils import ensure_git_repo, set_remote, commit_file, push_branch, get_current_branch
+from git_utils import ensure_git_repo, set_remote, commit_files, push_branch, get_current_branch
 from file_scanner import scan_files
 from date_handler import get_today_str, get_valid_datetime
 
@@ -19,43 +19,53 @@ from rich_interface import (
     choose_multiple_files,
     choose_single_file,
     commit_preview,
+    run_dry_preview,
     console,
 )
 from rich.prompt import Prompt, Confirm
+from collections import defaultdict
 
-def generate_commit_message(file_path: os.PathLike) -> str:
-    """Generate a human‑readable commit message based on filename/extension.
+def group_files(files: list[Path]) -> list[list[Path]]:
+    """Group files by top-level directory and then by extension."""
+    groups = defaultdict(list)
+    for f in files:
+        ext = f.suffix.lower()
+        parent = f.parent.name
+        groups[(parent, ext)].append(f)
+    return list(groups.values())
 
-    Known mappings:
-        *.html  -> "Create homepage structure" (for index.html)
-        *.html  -> "Create <name> page" (for other html files)
-        *.css   -> "Add application styling"
-        *.js    -> "Implement application logic"
-        *.py    -> "Add Python script"
-        *.json  -> "Add JSON configuration"
-        *.md    -> "Update project documentation"
-        README.*-> "Update project documentation"
-    Fallback: "Add <filename>"
-    """
-    filename = os.path.basename(str(file_path))
-    name, ext = os.path.splitext(filename)
-    ext = ext.lower()
-    if ext == ".html":
-        if name.lower() == "index":
-            return "Create homepage structure"
-        return f"Create {name} page"
-    if ext == ".css":
-        return "Add application styling"
-    if ext == ".js":
-        return "Implement application logic"
-    if ext == ".py":
-        return "Add Python script"
-    if ext == ".json":
-        return "Add JSON configuration"
-    if ext == ".md" or name.lower().startswith("readme"):
-        return "Update project documentation"
-    return f"Add {filename}"
-
+def generate_commit_message(files: list[str]) -> str:
+    """Generate a human‑readable commit message based on filenames/extensions."""
+    if not files:
+        return "Update project files"
+        
+    exts = set()
+    for f in files:
+        _, ext = os.path.splitext(f)
+        exts.add(ext.lower())
+        
+    if len(exts) == 1:
+        ext = exts.pop()
+        if ext == ".html":
+            return "Update web page"
+        elif ext == ".css":
+            return "Improve styling"
+        elif ext == ".js":
+            return "Enhance functionality"
+        elif ext == ".pdf":
+            return "Add document"
+        elif ext == ".py":
+            return "Add Python script"
+        elif ext == ".json":
+            return "Add JSON configuration"
+        elif ext in {".md", ".txt"}:
+            return "Update documentation"
+            
+    # If multiple types exist
+    if {".html", ".css", ".js"}.intersection(exts):
+        return "Update web project assets"
+        
+    return "Update project files"
 def main():
     # Welcome banner
     welcome()
@@ -74,6 +84,11 @@ def main():
     smart_group.add_argument("--today", action="store_true", help="Use today at 12:00:00")
     smart_group.add_argument("--yesterday", action="store_true", help="Use yesterday at 12:00:00")
     smart_group.add_argument("--last-week", action="store_true", help="Use date 7 days ago at 12:00:00")
+    
+    # Batching flags
+    parser.add_argument("--all", action="store_true", help="Group all modified files into intelligent batches")
+    parser.add_argument("--folder", type=Path, help="Target a specific subdirectory to group its files into a single batch commit")
+    
     args = parser.parse_args()
 
     # Determine which smart flag (if any) was provided
@@ -90,8 +105,8 @@ def main():
     # Resolve directory
     folder = args.directory or Path(Prompt.ask("📁 Folder path (absolute)")).resolve()
 
-    # Choose commit mode via Rich UI (1=all,2=multiple,3=single)
-    commit_mode = str(display_commit_mode_menu())
+    # Choose commit mode via Rich UI (1=all,2=multiple,3=single) if not batched
+    commit_mode = "batch" if args.all or args.folder else str(display_commit_mode_menu())
 
     # Initialise repo (skip in dry‑run)
     if not args.dry_run:
@@ -104,21 +119,33 @@ def main():
     branch = args.branch or get_current_branch(folder)
 
     # Scan files respecting .gitignore etc.
-    all_files = scan_files(folder)
+    if args.folder:
+        target_dir = (folder / args.folder).resolve()
+        all_files = scan_files(target_dir)
+    else:
+        all_files = scan_files(folder)
+        
     if not all_files:
         console.print("No files found.", style="red")
         return
 
-    # Determine files to process based on UI selection
-    if commit_mode == "1":
-        files_to_process = all_files
-    elif commit_mode == "2":
-        files_to_process = choose_multiple_files(all_files)
-    elif commit_mode == "3":
-        files_to_process = choose_single_file(all_files)
+    # Determine batches based on UI selection or flags
+    grouped_batches = []
+    if args.folder:
+        grouped_batches = [all_files]
+    elif args.all:
+        grouped_batches = group_files(all_files)
     else:
-        console.print(f"Invalid commit mode selected: {commit_mode}", style="red")
-        return
+        if commit_mode == "1":
+            files_to_process = all_files
+        elif commit_mode == "2":
+            files_to_process = choose_multiple_files(all_files)
+        elif commit_mode == "3":
+            files_to_process = choose_single_file(all_files)
+        else:
+            console.print(f"Invalid commit mode selected: {commit_mode}", style="red")
+            return
+        grouped_batches = [[f] for f in files_to_process]
 
     # Shared date handling when CLI mode flag "-m 2" is used
     shared_date = None
@@ -127,31 +154,41 @@ def main():
 
     # Build commit plan
     commits = []
-    for file_path in files_to_process:
-        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {file_path.name}", smart_flag=smart_flag)
-        generated_msg = generate_commit_message(file_path)
-        if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}'?", default=True):
+    for batch in grouped_batches:
+        batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
+        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {batch_name}", smart_flag=smart_flag)
+        generated_msg = generate_commit_message([str(f) for f in batch])
+        if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}' for {batch_name}?", default=True):
             msg = generated_msg
         else:
-            msg = Prompt.ask(f"💬 Commit message for {file_path.name}", default=f"Add {file_path.name}")
-        commits.append((file_path, msg, commit_date))
+            msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
+        commits.append((batch, msg, commit_date))
 
     # Show preview and ask for confirmation
     if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits):
         console.print("❌ Process cancelled by user.", style="red")
         return
 
+    if args.dry_run:
+        repo_state = {
+            "repo_name": folder.name,
+            "branch": branch,
+            "remote": remote_url if "remote_url" in locals() and remote_url else "origin",
+            "commits": commits
+        }
+        console.print(f"[bold yellow]{run_dry_preview(repo_state)}[/bold yellow]")
+        return
+        
     successes, failures = [], []
-    for file_path, msg, commit_date in commits:
-        if args.dry_run:
-            console.print(f"[DRY RUN] Would commit {file_path.name} on {commit_date}")
-            successes.append(str(file_path))
-        else:
-            try:
-                commit_file(folder, file_path, msg, commit_date)
-                successes.append(str(file_path))
-            except GitCommandError as e:
-                failures.append((str(file_path), str(e)))
+    from git_utils import commit_files
+    for batch, msg, commit_date in commits:
+        try:
+            commit_files(folder, batch, msg, commit_date)
+            for f in batch:
+                successes.append(str(f))
+        except GitCommandError as e:
+            for f in batch:
+                failures.append((str(f), str(e)))
 
     # Summary output
     console.print("\n[bold]=== Commit Summary ===")
