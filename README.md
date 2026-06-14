@@ -6,18 +6,34 @@ A lightweight command‑line tool that lets you create **date‑stamped commits*
 
 ## ✨ Features
 
-- ✅ **Automatic Git initialization** – works on any folder.
-- 🌐 **Remote configuration** – add or overwrite the `origin` remote.
-- 📂 **Recursive file scanning** – skips the `.git` directory automatically.
-- 📅 **Flexible date handling** – choose a single date for all files or a different date per file.
-- 🚀 **One‑click push** – all commits are pushed in a single operation.
-- 🎨 **Rich terminal output and summaries.**
-- 🛠️ **Modular design** – cleanly separated modules (`file_scanner`, `date_handler`, `git_utils`).
-- 🔀 **Automatic branch detection** – the tool uses the currently checked‑out Git branch (no automatic creation, renaming, or switching of branches).
-- ✉️ **Automatic commit message generation** – messages are generated based on file type.
-- ⚡ **Auto‑message mode** – `--auto-message` flag accepts generated messages without prompting.
-- 🧪 **Dry‑run support** – preview actions without changing the repository.
-- 📊 **Commit summary reporting** – clear tables of successes and failures.
+✅ Automatic Git initialization – works on any folder.
+🌐 Remote configuration – add or overwrite the origin remote.
+📂 Smart file scanning – recursively scans project files while respecting .gitignore rules and skipping unnecessary files.
+📅 Flexible date selection:
+Use a single date for all commits.
+Use different dates for individual files.
+Supports keywords like:
+today
+yesterday
+day-before
+Or enter any custom date (YYYY-MM-DD).
+⏰ Flexible time selection:
+Default commit time: 12:00:00
+Optional custom time entry (HH:MM:SS)
+📄 Multiple commit modes:
+Commit all files
+Commit selected files
+Commit a single file
+✉️ Automatic commit message generation based on file type.
+✍️ Custom commit messages supported for every file.
+👀 Commit preview screen before execution.
+🔀 Automatic branch detection.
+🚀 One-click push after all commits are created.
+🎨 Rich interactive terminal UI powered by Rich.
+📊 Commit summary reporting with success and failure tracking.
+⚡ Auto-message mode (--auto-message).
+🧪 Dry-run mode (--dry-run) to preview actions safely.
+🛠️ Modular architecture for easy maintenance and extension.
 
 ---
 
