@@ -2,7 +2,7 @@
 import calendar
 import datetime
 import re
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from rich.prompt import Prompt
 from rich.console import Console
 
@@ -83,8 +83,15 @@ def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, def
             raise ValueError(f"Unsupported smart flag: {smart_flag}")
 
     # Interactive mode – ask the user for date and optional time
+    prompt_text = (
+        f"{prompt_msg}\n"
+        "  * YYYY-MM-DD\n"
+        "  * today\n"
+        "  * yesterday\n"
+        "Enter Date"
+    )
     while True:
-        date_str = Prompt.ask(f"{prompt_msg} (YYYY-MM-DD or natural phrase like 'yesterday', '2 days ago')", default=default)
+        date_str = Prompt.ask(prompt_text, default=default)
         if not date_str:
             # Empty input (user pressed Enter) – ask again
             console.print("[red]Date cannot be empty. Please provide a date in YYYY-MM-DD format or natural phrase.[/red]")
@@ -131,7 +138,7 @@ def _parse_time(time_str: str) -> datetime.time:
     return datetime.datetime.strptime(time_str, "%H:%M:%S").time()
 
 
-def generate_date_schedule(start: str, end: str, count: int) -> List[str]:
+def generate_date_schedule(start: str, end: str, count: int, time_str: str = "12:00:00") -> List[str]:
     """Generate an evenly spaced list of commit timestamps.
 
     Parameters
@@ -142,6 +149,8 @@ def generate_date_schedule(start: str, end: str, count: int) -> List[str]:
         End date in ``YYYY-MM-DD`` format.
     count: int
         Number of timestamps to generate.
+    time_str: str
+        Time component for the timestamps, defaults to ``12:00:00``.
 
     Returns
     -------
@@ -160,11 +169,76 @@ def generate_date_schedule(start: str, end: str, count: int) -> List[str]:
         raise ValueError("End date must be on or after start date")
     total_days = (end_dt - start_dt).days
     if count == 1:
-        return [_format_noon(start_dt)]
+        return [f"{start_dt.isoformat()} {time_str}"]
     step = total_days / (count - 1)
     schedule = []
     for i in range(count):
         delta = round(step * i)
         cur_date = start_dt + datetime.timedelta(days=delta)
-        schedule.append(_format_noon(cur_date))
+        schedule.append(f"{cur_date.isoformat()} {time_str}")
     return schedule
+
+def get_timeline_input() -> Tuple[str, str, str]:
+    """Prompt the user for start date, end date, and optional time for Timeline Mode.
+
+    Returns
+    -------
+    Tuple[str, str, str]
+        Start date (YYYY-MM-DD), End date (YYYY-MM-DD), and Time (HH:MM:SS)
+    """
+    date_prompt = (
+        "\n  * YYYY-MM-DD\n"
+        "  * today\n"
+        "  * yesterday\n"
+        "Enter Date"
+    )
+    while True:
+        start_date_str = Prompt.ask(f"📅 Start Date{date_prompt}")
+        if not start_date_str:
+            console.print("[red]Start date cannot be empty.[/red]")
+            continue
+        try:
+            try:
+                start_dt = resolve_natural_date(start_date_str)
+                start_date_str = start_dt.strftime("%Y-%m-%d")
+            except ValueError:
+                _parse_date(start_date_str)
+        except ValueError:
+            console.print("[red]Invalid date format. Use YYYY-MM-DD, today, or yesterday.[/red]")
+            continue
+            
+        end_date_str = Prompt.ask(f"📅 End Date{date_prompt}")
+        if not end_date_str:
+            console.print("[red]End date cannot be empty.[/red]")
+            continue
+        try:
+            try:
+                end_dt = resolve_natural_date(end_date_str)
+                end_date_str = end_dt.strftime("%Y-%m-%d")
+            except ValueError:
+                _parse_date(end_date_str)
+        except ValueError:
+            console.print("[red]Invalid date format. Use YYYY-MM-DD, today, or yesterday.[/red]")
+            continue
+
+        try:
+            start_dt = _parse_date(start_date_str)
+            end_dt = _parse_date(end_date_str)
+            if end_dt < start_dt:
+                console.print("[red]End date must be on or after start date.[/red]")
+                continue
+        except ValueError:
+            continue
+
+        time_prompt = "⏰ Commit Time (HH:MM:SS)\nPress Enter to use default"
+        time_str = Prompt.ask(time_prompt, default="12:00:00")
+        if not time_str:
+            time_str = "12:00:00"
+        try:
+            _parse_time(time_str)
+        except ValueError:
+            console.print("[red]Invalid time format. Use HH:MM:SS.[/red]")
+            continue
+
+        return start_date_str, end_date_str, time_str
+

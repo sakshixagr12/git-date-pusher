@@ -78,8 +78,8 @@ def commit_files_internal(repo: Repo, file_paths: List[Path], commit_message: st
     try:
         add_files(repo, file_paths)
         env = {
-            "GIT_AUTHOR_DATE": f"{commit_date}T12:00:00",
-            "GIT_COMMITTER_DATE": f"{commit_date}T12:00:00",
+            "GIT_AUTHOR_DATE": commit_date,
+            "GIT_COMMITTER_DATE": commit_date,
         }
         repo.git.commit('--allow-empty', '-m', commit_message, env=env)
         print(f"✅ Committed {len(file_paths)} files with date {commit_date}")

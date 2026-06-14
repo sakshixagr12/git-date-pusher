@@ -9,7 +9,7 @@ from git import GitCommandError
 # Project utilities
 from git_utils import ensure_git_repo, set_remote, commit_files, push_branch, get_current_branch
 from file_scanner import scan_files
-from date_handler import get_today_str, get_valid_datetime
+from date_handler import get_today_str, get_valid_datetime, get_timeline_input, generate_date_schedule
 
 # Rich UI helpers
 from rich_interface import (
@@ -20,6 +20,8 @@ from rich_interface import (
     choose_single_file,
     commit_preview,
     run_dry_preview,
+    display_date_mode_menu,
+    timeline_preview,
     console,
 )
 from rich.prompt import Prompt, Confirm
@@ -39,6 +41,29 @@ def generate_commit_message(files: list[str]) -> str:
     if not files:
         return "Update project files"
         
+    if len(files) == 1:
+        f = files[0]
+        name = Path(f).name
+        name_lower = name.lower()
+        
+        if name_lower == "index.html": return "Create homepage"
+        if name_lower == "dashboard.html": return "Create dashboard page"
+        if name_lower == "login.html": return "Create login page"
+        if name_lower in ["register.html", "signup.html"]: return "Create registration page"
+        if name_lower == "style.css": return "Add application styling"
+        if name_lower == "app.js": return "Implement application logic"
+        if name_lower == "main.py": return "Implement main functionality"
+        if name_lower == "readme.md": return "Update project documentation"
+        if name_lower == "rest.html": return "Create restaurant page"
+        
+        stem = Path(f).stem
+        clean_name = stem.replace("-", " ").replace("_", " ").lower()
+        
+        if clean_name.endswith("page") or clean_name.endswith("homepage"):
+            return f"Create {clean_name}"
+        else:
+            return f"Create {clean_name} page"
+            
     exts = set()
     for f in files:
         _, ext = os.path.splitext(f)
@@ -77,7 +102,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Show actions without modifying the repository")
     parser.add_argument("--auto-message", action="store_true", help="Automatically accept generated commit messages without prompting")
     parser.add_argument("-f", "--force", action="store_true", help="Force push to the remote repository")
-    parser.add_argument("-m", "--mode", choices=["1", "2"], default="1", help="1: date per file, 2: one date for all")
+    parser.add_argument("-m", "--mode", choices=["1", "2", "3"], help="1: one date for all, 2: date per file, 3: timeline mode")
     # Smart default flags – mutually exclusive
     smart_group = parser.add_mutually_exclusive_group()
     smart_group.add_argument("--now", action="store_true", help="Use current date and time")
@@ -147,25 +172,70 @@ def main():
             return
         grouped_batches = [[f] for f in files_to_process]
 
-    # Shared date handling when CLI mode flag "-m 2" is used
+    # Determine Date Mode
+    date_mode = args.mode if args.mode else display_date_mode_menu()
+
+    # Shared date handling when date mode is "1" (Same Date For All Files)
     shared_date = None
-    if args.mode == "2":
+    if date_mode == "1":
         shared_date = get_valid_datetime("📅 Date for all files", smart_flag=smart_flag)
 
     # Build commit plan
     commits = []
-    for batch in grouped_batches:
-        batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
-        commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {batch_name}", smart_flag=smart_flag)
-        generated_msg = generate_commit_message([str(f) for f in batch])
-        if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}' for {batch_name}?", default=True):
-            msg = generated_msg
+    if date_mode == "3":
+        start_date_str, end_date_str, time_str = get_timeline_input()
+        schedule = generate_date_schedule(start_date_str, end_date_str, len(grouped_batches), time_str)
+        
+        # Calculate average gap
+        start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date_str, "%Y-%m-%d")
+        gap_days = (end_dt - start_dt).days
+        avg_gap = round(gap_days / max(1, len(grouped_batches) - 1), 2) if len(grouped_batches) > 1 else 0
+        
+        preview_items = []
+        for i, batch in enumerate(grouped_batches):
+            batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
+            generated_msg = generate_commit_message([str(f) for f in batch])
+            preview_items.append((batch_name, schedule[i], generated_msg))
+            
+        summary_info = {
+            "files": len(grouped_batches),
+            "start": start_date_str,
+            "end": end_date_str,
+            "time": time_str,
+            "gap": avg_gap
+        }
+            
+        # Print timeline preview table
+        timeline_preview(preview_items)
+            
+        # Bulk message confirmation
+        if args.auto_message:
+            accept_all = True
         else:
-            msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
-        commits.append((batch, msg, commit_date))
+            accept_all = Confirm.ask("Accept all generated commit messages?", default=True)
+            
+        for i, batch in enumerate(grouped_batches):
+            batch_name, commit_date, generated_msg = preview_items[i]
+            if accept_all:
+                msg = generated_msg
+            else:
+                msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
+            commits.append((batch, msg, commit_date))
+    else:
+        for batch in grouped_batches:
+            batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
+            commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {batch_name}", smart_flag=smart_flag)
+            generated_msg = generate_commit_message([str(f) for f in batch])
+            if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}' for {batch_name}?", default=True):
+                msg = generated_msg
+            else:
+                msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
+            commits.append((batch, msg, commit_date))
 
     # Show preview and ask for confirmation
-    if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits):
+    summary_info = summary_info if date_mode == "3" else None
+    if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits, summary_info=summary_info):
         console.print("❌ Process cancelled by user.", style="red")
         return
 
@@ -191,11 +261,21 @@ def main():
                 failures.append((str(f), str(e)))
 
     # Summary output
-    console.print("\n[bold]=== Commit Summary ===")
-    for f in successes:
-        console.print(f"✅ {f}")
-    for f, err in failures:
-        console.print(f"❌ {f}: {err}")
+    from rich_interface import final_summary
+    timeline_range = f"{start_date_str} to {end_date_str}" if date_mode == "3" else "N/A"
+    final_summary(
+        total_files=len(successes) + len(failures),
+        total_commits=len(commits),
+        branch=branch,
+        timeline_range=timeline_range,
+        successes=len(successes),
+        failures=len(failures)
+    )
+
+    if failures:
+        console.print("\n[bold red]Failed Files:[/bold red]")
+        for f, err in failures:
+            console.print(f"❌ {f}: {err}")
 
     if not args.dry_run:
         try:

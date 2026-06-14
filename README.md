@@ -9,7 +9,7 @@ A lightweight command‑line tool that lets you create **date‑stamped commits*
 - ✅ **Automatic Git initialization** – works on any folder.
 - 🌐 **Remote configuration** – add or overwrite the `origin` remote.
 - 📂 **Recursive file scanning** – skips the `.git` directory automatically.
-- 📅 **Flexible date handling** – choose a single date for all files or a different date per file.
+- 📅 **Flexible date handling** – choose a single date for all files, a different date per file, or use Timeline Mode to distribute dates evenly.
 - 🚀 **One‑click push** – all commits are pushed in a single operation.
 - 🎨 **Rich terminal output and summaries.**
 - 🛠️ **Modular design** – cleanly separated modules (`file_scanner`, `date_handler`, `git_utils`).
@@ -51,7 +51,7 @@ python main.py [options]
 | `-d`, `--directory` | Path to the project folder (if omitted you will be prompted). |
 | `-r`, `--remote` | GitHub repo URL (e.g. `https://github.com/user/repo.git`). |
 | `-b`, `--branch` | Target branch name – defaults to the **currently checked‑out branch**. |
-| `-m`, `--mode`   | `1` – date per file, `2` – one date for all files. |
+| `-m`, `--mode`   | `1` – one date for all, `2` – date per file, `3` – timeline mode. |
 | `--time` | Enables optional time entry for commits (default 12:00:00). |
 
 | `--auto-message` | Automatically accept generated commit messages without prompting. |
@@ -71,13 +71,18 @@ Commit messages are generated automatically based on the file type:
 
 #### Example Mappings
 ```
-index.html   → Create homepage structure
-about.html   → Add about page
-style.css    → Add application styling
-app.js       → Implement application logic
-main.py      → Implement main functionality
-config.json  → Configure application settings
-README.md    → Update project documentation
+blog.html                → Create blog page
+E-Commerce Homepage.html → Create e commerce homepage
+fruits.html              → Create fruits page
+Hospital dashboard.html  → Create hospital dashboard page
+index.html               → Create homepage structure
+dashboard.html           → Create dashboard page
+login.html               → Add login page
+signup.html              → Add registration page
+style.css                → Add application styling
+app.js                   → Implement application logic
+main.py                  → Add Python script
+README.md                → Update project documentation
 ```
 
 ### Interactive flow
@@ -86,7 +91,7 @@ README.md    → Update project documentation
 3. **Remote** – you provide the GitHub URL; the script will ask before overwriting an existing remote.
 4. **Branch** – the tool detects the current branch and uses it (you can override with `-b`).
 5. **File list** – the script shows every file that will be committed.
-6. **Date mode** – pick a single date for the whole project or a separate date per file.
+6. **Date mode** – pick `Same Date For All Files`, `Different Date Per File`, or `Timeline Mode`.
 7. **Commit** – for each file a generated commit message is shown; you can accept it, edit it, or (with `--auto-message`) skip the prompt.
 8. **Push** – all commits are pushed in one go.
 9. **Summary** – a colourful table summarises the operation.
@@ -111,20 +116,23 @@ README.md    → Update project documentation
 # 1️⃣ Start the tool
 python main.py -d /path/to/my/project -r https://github.com/me/my-project.git --auto-message
 
-# 2️⃣ Choose mode "1" (date per file) or "2" (one date for all files)
-#    → Enter date: 2024-01-15
+# 2️⃣ Choose Date Mode: 1 (Same Date), 2 (Different Date), or 3 (Timeline Mode)
+#    → For Timeline Mode, enter Start Date: 2026-06-01, End Date: 2026-06-10
+#    → Review the Timeline Preview showing files, dates, and generated messages.
 
 # 3️⃣ With `--auto-message` the generated commit messages are accepted automatically.
 
 # 4️⃣ The tool commits each file and pushes:
 🚀 Push completed successfully.
 
-# 5️⃣ A summary is shown:
-=== Commit Summary ===
-✅ Successful commits:
-  - index.html
-  - style.css
-  - app.js
+# 5️⃣ A rich Final Summary is shown:
+=== Final Summary ===
+✓ Total files processed     3
+✓ Total commits created     3
+✓ Branch pushed             main
+✓ Timeline range used       2026-06-01 to 2026-06-10
+✓ Success count             3
+✓ Failure count             0
 ```
 
 That's it – you now have a repository with back‑dated commits!

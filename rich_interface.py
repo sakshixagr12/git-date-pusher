@@ -36,6 +36,23 @@ def display_commit_mode_menu() -> int:
         console.print("[red]Invalid choice. Please enter 1, 2, or 3.[/red]")
 
 
+def display_date_mode_menu() -> str:
+    """Show the date mode selection menu and return the chosen option (1, 2, or 3)."""
+    menu_text = "Select Date Mode"
+    options = [
+        "[1] Same Date For All Files",
+        "[2] Different Date Per File",
+        "[3] Timeline Mode",
+    ]
+    panel = Panel.fit("\n".join(options), title=menu_text, border_style="bright_blue")
+    console.print(panel)
+    while True:
+        choice = console.input("Choice: ")
+        if choice in {"1", "2", "3"}:
+            return choice
+        console.print("[red]Invalid choice. Please enter 1, 2, or 3.[/red]")
+
+
 def choose_multiple_files(files: List[Path]) -> List[Path]:
     """Display a numbered table of files and let the user select multiple via comma-separated numbers.
 
@@ -51,10 +68,14 @@ def choose_multiple_files(files: List[Path]) -> List[Path]:
         raw = console.input("Enter file numbers (comma separated): ")
         try:
             indices = [int(x.strip()) for x in raw.split(",") if x.strip()]
-            selected = [files[i - 1] for i in indices]
+            if not indices:
+                console.print("[red]No files selected. Please enter at least one number.[/red]")
+                continue
+            unique_indices = list(dict.fromkeys(indices))
+            selected = [files[i - 1] for i in unique_indices]
             return selected
         except Exception:
-            console.print("[red]Invalid input. Please enter numbers separated by commas.[/red]")
+            console.print("[red]Invalid input. Please enter valid numbers separated by commas.[/red]")
 
 
 def choose_single_file(files: List[Path]) -> List[Path]:
@@ -130,31 +151,36 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
             prog.update(task, advance=1)
 
 
-def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]]) -> bool:
+def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]], summary_info: dict = None) -> bool:
     """Display a preview of the commits and ask for confirmation.
 
     Args:
         repo_name: Name of the repository (folder name).
         branch: Target branch name.
         commit_items: List of tuples (file_paths, commit_message, commit_date).
+        summary_info: Optional dictionary containing summary statistics (for Timeline mode).
 
     Returns:
         True if the user chooses to proceed, False otherwise.
     """
-    # Prepare data strings
-    files_str = ", ".join([f"{len(paths)} files" for paths, _, _ in commit_items])
-    messages = ", ".join([msg for _, msg, _ in commit_items])
-    dates = ", ".join([date for _, _, date in commit_items])
-    total = len(commit_items)
-
     # Build a table with the preview information
     table = Table(show_header=False, box=None)
     table.add_row("Repository:", repo_name)
     table.add_row("Branch:", branch)
-    table.add_row("Files Selected:", files_str or "(none)")
-    table.add_row("Commit Messages:", messages or "(none)")
+    
+    total_files = sum(len(paths) for paths, _, _ in commit_items)
+    table.add_row("Selected Files Count:", str(total_files))
+    
+    if summary_info:
+        table.add_row("Timeline Range:", f"{summary_info['start']} to {summary_info['end']}")
+        gap = summary_info['gap']
+        gap_str = f"{int(gap)} days" if gap == int(gap) else f"{gap} days"
+        table.add_row("Average Gap:", gap_str)
+        
+    dates = ", ".join([date for _, _, date in commit_items])
+    messages = ", ".join([msg for _, msg, _ in commit_items])
     table.add_row("Commit Dates:", dates or "(none)")
-    table.add_row("Total Commits:", str(total))
+    table.add_row("Messages:", messages or "(none)")
 
     panel = Panel(
         Align.center(table),
@@ -164,6 +190,23 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Pa
     console.print(panel)
     # Ask for confirmation
     return Confirm.ask("Proceed?", default=True)
+
+
+def timeline_preview(file_date_mapping: List[Tuple[str, str, str]]) -> None:
+    """Display a rich table preview of the timeline mode commits.
+
+    Args:
+        file_date_mapping: List of tuples (batch_name, date_str, message).
+    """
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("File")
+    table.add_column("Date")
+    table.add_column("Message")
+    
+    for name, date_str, msg in file_date_mapping:
+        table.add_row(name, date_str, msg)
+
+    console.print(table)
 
 
 def run_dry_preview(repo_state: dict) -> str:
@@ -199,13 +242,23 @@ def run_dry_preview(repo_state: dict) -> str:
     lines.append("=" * 60)
     
     return "\n".join(lines)
-def summary(total: int, successes: int) -> None:
-    """Print a final summary table."""
-    tbl = Table(title="Run Summary", show_header=False)
-    tbl.add_row("Total files processed", str(total))
-    tbl.add_row("Successful commits", str(successes))
-    tbl.add_row("Failed commits", str(total - successes))
-    console.print(tbl)
+def final_summary(total_files: int, total_commits: int, branch: str, timeline_range: str, successes: int, failures: int) -> None:
+    """Print a rich final summary panel."""
+    table = Table(show_header=False, box=None)
+    table.add_row("✓ Total files processed", str(total_files))
+    table.add_row("✓ Total commits created", str(total_commits))
+    table.add_row("✓ Branch pushed", branch)
+    if timeline_range != "N/A":
+        table.add_row("✓ Timeline range used", timeline_range)
+    table.add_row("✓ Success count", f"[green]{successes}[/green]")
+    table.add_row("✓ Failure count", f"[red]{failures}[/red]" if failures > 0 else "0")
+
+    panel = Panel(
+        Align.center(table),
+        title="[bold]=== Final Summary ===[/bold]",
+        border_style="bright_green" if failures == 0 else "bright_yellow",
+    )
+    console.print(panel)
 
 if __name__ == "__main__":
     # The rich_interface module is primarily for UI utilities.
