@@ -99,17 +99,16 @@ def get_valid_datetime(prompt_msg: str, *, smart_flag: Optional[str] = None, def
             
         try:
             dt = resolve_natural_date(date_str)
-            return dt.strftime("%Y-%m-%d %H:%M:%S")
+            date_str = dt.strftime("%Y-%m-%d")
         except ValueError:
-            pass # Not a natural phrase, try standard parsing
-            
-        try:
-            _parse_date(date_str)
-        except ValueError:
-            console.print("[red]Invalid date format. Use YYYY-MM-DD or a natural phrase (e.g. 'yesterday').[/red]")
-            continue
+            try:
+                _parse_date(date_str)
+            except ValueError:
+                console.print("[red]Invalid date format. Use YYYY-MM-DD or a natural phrase (e.g. 'yesterday').[/red]")
+                continue
 
-        time_str = Prompt.ask(f"{prompt_msg} (time HH:MM:SS, optional)", default="12:00:00")
+        time_prompt = prompt_msg.replace("Date", "Time").replace("📅", "⏰")
+        time_str = Prompt.ask(f"{time_prompt} (HH:MM:SS, optional)", default="12:00:00")
         if not time_str:
             time_str = "12:00:00"
         try:
