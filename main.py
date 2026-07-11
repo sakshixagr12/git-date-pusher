@@ -36,61 +36,7 @@ def group_files(files: list[Path]) -> list[list[Path]]:
         groups[(parent, ext)].append(f)
     return list(groups.values())
 
-def generate_commit_message(files: list[str]) -> str:
-    """Generate a human‑readable commit message based on filenames/extensions."""
-    if not files:
-        return "Update project files"
-        
-    if len(files) == 1:
-        f = files[0]
-        name = Path(f).name
-        name_lower = name.lower()
-        
-        if name_lower == "index.html": return "Create homepage"
-        if name_lower == "dashboard.html": return "Create dashboard page"
-        if name_lower == "login.html": return "Create login page"
-        if name_lower in ["register.html", "signup.html"]: return "Create registration page"
-        if name_lower == "style.css": return "Add application styling"
-        if name_lower == "app.js": return "Implement application logic"
-        if name_lower == "main.py": return "Implement main functionality"
-        if name_lower == "readme.md": return "Update project documentation"
-        if name_lower == "rest.html": return "Create restaurant page"
-        
-        stem = Path(f).stem
-        clean_name = stem.replace("-", " ").replace("_", " ").lower()
-        
-        if clean_name.endswith("page") or clean_name.endswith("homepage"):
-            return f"Create {clean_name}"
-        else:
-            return f"Create {clean_name} page"
-            
-    exts = set()
-    for f in files:
-        _, ext = os.path.splitext(f)
-        exts.add(ext.lower())
-        
-    if len(exts) == 1:
-        ext = exts.pop()
-        if ext == ".html":
-            return "Update web page"
-        elif ext == ".css":
-            return "Improve styling"
-        elif ext == ".js":
-            return "Enhance functionality"
-        elif ext == ".pdf":
-            return "Add document"
-        elif ext == ".py":
-            return "Add Python script"
-        elif ext == ".json":
-            return "Add JSON configuration"
-        elif ext in {".md", ".txt"}:
-            return "Update documentation"
-            
-    # If multiple types exist
-    if {".html", ".css", ".js"}.intersection(exts):
-        return "Update web project assets"
-        
-    return "Update project files"
+from commit_generator import generate_commit_message
 
 def prompt_commit_message(batch_name: str, generated_msg: str) -> str:
     """Prompt the user for a commit message, allowing them to accept the generated one or enter a custom one."""
