@@ -91,6 +91,20 @@ def generate_commit_message(files: list[str]) -> str:
         return "Update web project assets"
         
     return "Update project files"
+
+def prompt_commit_message(batch_name: str, generated_msg: str) -> str:
+    """Prompt the user for a commit message, allowing them to accept the generated one or enter a custom one."""
+    if Confirm.ask(f"Use generated message: '{generated_msg}' for {batch_name}?", default=True):
+        console.print(f"[green]✓ Using generated message[/green]\n  {generated_msg}\n")
+        return generated_msg
+    else:
+        while True:
+            msg = Prompt.ask("Enter custom commit message").strip()
+            if msg:
+                console.print(f"[cyan]✓ Using custom message[/cyan]\n  {msg}\n")
+                return msg
+            console.print("[red]Message cannot be empty. Please enter a valid message.[/red]")
+
 def main():
     # Welcome banner
     welcome()
@@ -220,17 +234,17 @@ def main():
             if accept_all:
                 msg = generated_msg
             else:
-                msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
+                msg = prompt_commit_message(batch_name, generated_msg)
             commits.append((batch, msg, commit_date))
     else:
         for batch in grouped_batches:
             batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
             commit_date = shared_date if shared_date else get_valid_datetime(f"📅 Date for {batch_name}", smart_flag=smart_flag)
             generated_msg = generate_commit_message([str(f) for f in batch])
-            if args.auto_message or Confirm.ask(f"Use generated message: '{generated_msg}' for {batch_name}?", default=True):
+            if args.auto_message:
                 msg = generated_msg
             else:
-                msg = Prompt.ask(f"💬 Commit message for {batch_name}", default=generated_msg)
+                msg = prompt_commit_message(batch_name, generated_msg)
             commits.append((batch, msg, commit_date))
 
     # Show preview and ask for confirmation
@@ -251,14 +265,18 @@ def main():
         
     successes, failures = [], []
     from git_utils import commit_files
-    for batch, msg, commit_date in commits:
+    total_commits = len(commits)
+    for idx, (batch, msg, commit_date) in enumerate(commits, start=1):
+        batch_name = batch[0].name if len(batch) == 1 else f"{len(batch)} files in {batch[0].parent.name}"
         try:
             commit_files(folder, batch, msg, commit_date)
             for f in batch:
                 successes.append(str(f))
+            console.print(f"[green]✓ [{idx}/{total_commits}] {batch_name}[/green]\n    Message: {msg}\n")
         except GitCommandError as e:
             for f in batch:
                 failures.append((str(f), str(e)))
+            console.print(f"[red]❌ [{idx}/{total_commits}] {batch_name}[/red]\n    Error: {e}\n")
 
     # Summary output
     from rich_interface import final_summary
