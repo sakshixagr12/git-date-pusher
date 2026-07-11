@@ -278,29 +278,67 @@ def main():
                 failures.append((str(f), str(e)))
             console.print(f"[red]✗[/red] [[cyan]{idx}/{total_commits}[/cyan]] [green]{batch_name}[/green]\n\nReason:\n{e}\n")
 
-    # Summary output
-    from rich_interface import final_summary
-    timeline_range = f"{start_date_str} to {end_date_str}" if date_mode == "3" else "N/A"
-    final_summary(
-        total_files=len(successes) + len(failures),
-        total_commits=len(commits),
-        branch=branch,
-        timeline_range=timeline_range,
-        successes=len(successes),
-        failures=len(failures)
-    )
+    # Calculate stats for summary
+    remote_str = remote_url if "remote_url" in locals() and remote_url else "origin"
+    files_selected = sum(len(b) for b, _, _ in commits)
+    
+    date_mode_mapping = {"1": "Same Date", "2": "Different Dates", "3": "Timeline"}
+    date_mode_str = date_mode_mapping.get(date_mode, "Unknown")
+    
+    commit_range = None
+    timeline_span = None
+    if commits:
+        dates = []
+        for _, _, d_str in commits:
+            try:
+                parts = d_str.split()
+                if len(parts) == 2:
+                    dt = datetime.strptime(d_str, "%Y-%m-%d %H:%M:%S")
+                else:
+                    dt = datetime.strptime(d_str, "%Y-%m-%d")
+                dates.append(dt)
+            except Exception:
+                pass
+        if dates:
+            min_date = min(dates)
+            max_date = max(dates)
+            commit_range = (min_date.strftime("%Y-%m-%d %H:%M:%S"), max_date.strftime("%Y-%m-%d %H:%M:%S"))
+            span_days = (max_date - min_date).days
+            if span_days > 0:
+                timeline_span = f"{span_days} days"
+            else:
+                timeline_span = "0 days"
 
-    if failures:
-        console.print("\n[bold red]Failed Files:[/bold red]")
-        for f, err in failures:
-            console.print(f"❌ {f}: {err}")
-
+    # Push logic before summary
+    push_success = True
+    push_msg = "Push completed successfully."
     if not args.dry_run:
         try:
             push_branch(folder, branch, force=args.force)
-            console.print(f"🚀 Push completed successfully.{' (forced)' if args.force else ''}", style="green")
+            push_msg = f"Push completed successfully.{' (forced)' if args.force else ''}"
         except GitCommandError as e:
-            console.print(f"❌ Push failed: {e}", style="red")
+            push_success = False
+            push_msg = str(e)
+    else:
+        push_msg = "Dry run: no push executed."
+
+    # Final Summary output
+    from rich_interface import final_summary
+    final_summary(
+        repo_name=folder.name,
+        branch=branch,
+        remote=remote_str,
+        files_selected=files_selected,
+        files_committed=len(successes),
+        successes=len(successes),
+        failed=len(failures),
+        date_mode_str=date_mode_str,
+        timeline_used=(date_mode == "3"),
+        timeline_span=timeline_span,
+        commit_range=commit_range,
+        push_status=(push_success, push_msg),
+        failures_list=failures
+    )
 
 if __name__ == "__main__":
     main()

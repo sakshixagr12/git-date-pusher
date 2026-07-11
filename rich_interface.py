@@ -289,22 +289,108 @@ def run_dry_preview(repo_state: dict) -> str:
     lines.append("=" * 60)
     
     return "\n".join(lines)
-def final_summary(total_files: int, total_commits: int, branch: str, timeline_range: str, successes: int, failures: int) -> None:
+from rich.rule import Rule
+
+def final_summary(
+    repo_name: str, 
+    branch: str, 
+    remote: str,
+    files_selected: int,
+    files_committed: int,
+    successes: int,
+    failed: int,
+    date_mode_str: str,
+    timeline_used: bool,
+    timeline_span: str | None,
+    commit_range: Tuple[str, str] | None,
+    push_status: Tuple[bool, str],
+    failures_list: List[Tuple[str, str]]
+) -> None:
     """Print a rich final summary panel."""
-    table = Table(show_header=False, box=None)
-    table.add_row("✓ Total Files Processed", str(total_files))
-    table.add_row("✓ Total Commits Created", str(total_commits))
-    if timeline_range != "N/A":
-        table.add_row("✓ Timeline range used", timeline_range)
-    table.add_row("✓ Successful Commits", f"[bright_green]{successes}[/bright_green]")
-    table.add_row("✓ Failed Commits", f"[red]{failures}[/red]" if failures > 0 else "0")
+    from rich.console import Group
+    group_items = []
+    
+    # Repository info
+    group_items.extend([
+        Text(f"Repository : {repo_name}", style="white"),
+        Text(""),
+        Text(f"Branch : {branch}", style="white"),
+        Text(""),
+        Text(f"Remote : {remote}", style="white"),
+        Text(""),
+        Rule(style="cyan"),
+        Text(""),
+    ])
+
+    # Commit stats
+    stats_text = Text()
+    stats_text.append("Files Selected : ", style="cyan")
+    stats_text.append(f"{files_selected}\n\n", style="white")
+    
+    stats_text.append("Files Committed : ", style="cyan")
+    stats_text.append(f"{files_committed}\n\n", style="white")
+    
+    stats_text.append("Successful : ", style="cyan")
+    stats_text.append(f"{successes}\n\n", style="bright_green")
+    
+    stats_text.append("Failed : ", style="cyan")
+    stats_text.append(f"{failed}\n\n", style="bright_red" if failed > 0 else "white")
+    
+    stats_text.append("Date Mode : ", style="cyan")
+    stats_text.append(f"{date_mode_str}\n\n", style="white")
+    
+    stats_text.append("Timeline Used : ", style="cyan")
+    stats_text.append(f"{'Yes' if timeline_used else 'No'}\n\n", style="white")
+    
+    if timeline_span:
+        stats_text.append("Timeline Span : ", style="cyan")
+        stats_text.append(f"{timeline_span}\n\n", style="white")
+        
+    group_items.append(stats_text)
+    
+    if commit_range:
+        group_items.append(Text("Commit Range", style="cyan bold"))
+        group_items.append(Text(""))
+        group_items.append(Text(f"{commit_range[0]}", style="white"))
+        group_items.append(Text("\n↓\n", style="cyan"))
+        group_items.append(Text(f"{commit_range[1]}", style="white"))
+        group_items.append(Text(""))
+        group_items.append(Rule(style="cyan"))
+        group_items.append(Text(""))
+
+    # Push status
+    push_success, push_msg = push_status
+    if push_success:
+        group_items.append(Text(f"✓ {push_msg}", style="bright_green"))
+    else:
+        group_items.append(Text("✗ Push failed.", style="bright_red"))
+        group_items.append(Text(""))
+        group_items.append(Text("Reason:", style="cyan"))
+        group_items.append(Text(push_msg, style="white"))
+        
+    group_items.append(Text(""))
+    
+    if failed == 0 and push_success:
+        group_items.append(Text("🎉 All commits completed successfully!", style="bright_green bold"))
+    else:
+        group_items.append(Text("⚠ Completed with errors.", style="yellow bold"))
 
     panel = Panel(
-        Align.center(table),
-        title="[bold]=== Final Summary ===[/bold]",
-        border_style="bright_green" if failures == 0 else "bright_yellow",
+        Group(*group_items),
+        title="═══ Final Summary ═══",
+        border_style="green",
+        expand=False
     )
     console.print(panel)
+    
+    if failures_list:
+        console.print("")
+        fail_table = Table(title="Failed Commits", border_style="red", header_style="cyan")
+        fail_table.add_column("File")
+        fail_table.add_column("Reason")
+        for f, reason in failures_list:
+            fail_table.add_row(f, reason)
+        console.print(fail_table)
 
 if __name__ == "__main__":
     # The rich_interface module is primarily for UI utilities.
