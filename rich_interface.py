@@ -151,6 +151,29 @@ def process_files(files: List[Path], folder: Path, mode: int, shared_date: str |
             prog.update(task, advance=1)
 
 
+def truncate_string(s: str, max_length: int = 44) -> str:
+    """Truncate a string to a max length, appending '...' if necessary."""
+    if len(s) <= max_length:
+        return s
+    return s[:max_length - 3] + "..."
+
+def truncate_filename(f: str, max_length: int = 30) -> str:
+    """Truncate filename preserving extension if possible."""
+    if len(f) <= max_length:
+        return f
+    parts = f.rsplit('.', 1)
+    if len(parts) == 2:
+        ext = "." + parts[1]
+        name = parts[0]
+        if len(ext) > max_length - 3:
+            return f[:max_length - 3] + "..."
+        keep = max_length - len(ext) - 3
+        if keep <= 0:
+            return f[:max_length - 3] + "..."
+        return name[:keep] + "..." + ext
+    else:
+        return f[:max_length - 3] + "..."
+
 def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]], summary_info: dict = None) -> bool:
     """Display a preview of the commits and ask for confirmation.
 
@@ -163,32 +186,56 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Pa
     Returns:
         True if the user chooses to proceed, False otherwise.
     """
-    # Build a table with the preview information
-    table = Table(show_header=False, box=None)
-    table.add_row("Repository:", repo_name)
-    table.add_row("Branch:", branch)
+    from rich.console import Group
+
+    table = Table(header_style="cyan")
+    table.add_column("#")
+    table.add_column("File")
+    table.add_column("Commit Date")
+    table.add_column("Commit Message")
     
+    serial_no = 1
+    total_commits = len(commit_items)
     total_files = sum(len(paths) for paths, _, _ in commit_items)
-    table.add_row("Selected Files Count:", str(total_files))
+
+    for paths, msg, date in commit_items:
+        trunc_msg = truncate_string(msg, 44)
+        for path in paths:
+            trunc_file = truncate_filename(path.name, 30)
+            table.add_row(
+                str(serial_no),
+                f"[green]{trunc_file}[/green]",
+                f"[bright_blue]{date}[/bright_blue]",
+                f"[yellow]{trunc_msg}[/yellow]"
+            )
+            serial_no += 1
+
+    group_items = [
+        Text(f"Repository : {repo_name}"),
+        Text(f"Branch     : {branch}"),
+    ]
     
     if summary_info:
-        table.add_row("Timeline Range:", f"{summary_info['start']} to {summary_info['end']}")
         gap = summary_info['gap']
         gap_str = f"{int(gap)} days" if gap == int(gap) else f"{gap} days"
-        table.add_row("Average Gap:", gap_str)
-        
-    dates = ", ".join([date for _, _, date in commit_items])
-    messages = ", ".join([msg for _, msg, _ in commit_items])
-    table.add_row("Commit Dates:", dates or "(none)")
-    table.add_row("Messages:", messages or "(none)")
+        group_items.append(Text(f"Timeline Range: {summary_info['start']} to {summary_info['end']}"))
+        group_items.append(Text(f"Average Gap: {gap_str}"))
+
+    group_items.extend([
+        Text(""),
+        table,
+        Text(""),
+        Text(f"Total Files : {total_files}", style="bold green"),
+        Text(f"Total Commits : {total_commits}", style="bold green"),
+    ])
 
     panel = Panel(
-        Align.center(table),
+        Group(*group_items),
         title="COMMIT PREVIEW",
-        border_style="bright_magenta",
+        border_style="magenta",
+        expand=False
     )
     console.print(panel)
-    # Ask for confirmation
     return Confirm.ask("Proceed?", default=True)
 
 
