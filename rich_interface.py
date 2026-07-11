@@ -174,7 +174,7 @@ def truncate_filename(f: str, max_length: int = 30) -> str:
     else:
         return f[:max_length - 3] + "..."
 
-def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]], summary_info: dict = None) -> bool:
+def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Path], str, str]], summary_info: dict = None, push_enabled: bool = True) -> bool:
     """Display a preview of the commits and ask for confirmation.
 
     Args:
@@ -182,6 +182,7 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Pa
         branch: Target branch name.
         commit_items: List of tuples (file_paths, commit_message, commit_date).
         summary_info: Optional dictionary containing summary statistics (for Timeline mode).
+        push_enabled: Whether a push will be performed after commits.
 
     Returns:
         True if the user chooses to proceed, False otherwise.
@@ -236,7 +237,16 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Pa
         expand=False
     )
     console.print(panel)
-    return Confirm.ask("Proceed?", default=True)
+    
+    # Custom dynamic confirmation prompt
+    commit_word = "commit" if total_commits == 1 else "commits"
+    if push_enabled:
+        pronoun = "it" if total_commits == 1 else "them"
+        prompt_text = f"\nPress Y to create {total_commits} {commit_word} and push {pronoun} to '{branch}'\nPress N to cancel the operation.\n\nChoice"
+    else:
+        prompt_text = f"\nPress Y to create {total_commits} {commit_word}\nPress N to cancel the operation.\n\nChoice"
+
+    return Confirm.ask(prompt_text, default=True)
 
 
 def timeline_preview(file_date_mapping: List[Tuple[str, str, str]]) -> None:

@@ -195,7 +195,8 @@ def main():
 
     # Show preview and ask for confirmation
     summary_info = summary_info if date_mode == "3" else None
-    if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits, summary_info=summary_info):
+    push_enabled = not args.dry_run
+    if not commit_preview(repo_name=folder.name, branch=branch, commit_items=commits, summary_info=summary_info, push_enabled=push_enabled):
         console.print("Process cancelled by user.")
         return
 
