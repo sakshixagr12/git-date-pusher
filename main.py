@@ -272,11 +272,11 @@ def main():
             commit_files(folder, batch, msg, commit_date)
             for f in batch:
                 successes.append(str(f))
-            console.print(f"[green]✓ [{idx}/{total_commits}] {batch_name}[/green]\n    Message: {msg}\n")
+            console.print(f"[bright_green]✓[/bright_green] [[cyan]{idx}/{total_commits}[/cyan]] [green]{batch_name}[/green]\n    Date: {commit_date}\n    Message: {msg}\n")
         except GitCommandError as e:
             for f in batch:
                 failures.append((str(f), str(e)))
-            console.print(f"[red]❌ [{idx}/{total_commits}] {batch_name}[/red]\n    Error: {e}\n")
+            console.print(f"[red]✗[/red] [[cyan]{idx}/{total_commits}[/cyan]] [green]{batch_name}[/green]\n\nReason:\n{e}\n")
 
     # Summary output
     from rich_interface import final_summary

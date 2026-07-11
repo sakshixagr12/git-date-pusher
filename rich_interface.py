@@ -203,7 +203,7 @@ def commit_preview(repo_name: str, branch: str, commit_items: List[Tuple[List[Pa
         for path in paths:
             trunc_file = truncate_filename(path.name, 30)
             table.add_row(
-                str(serial_no),
+                f"[cyan]{serial_no}[/cyan]",
                 f"[green]{trunc_file}[/green]",
                 f"[bright_blue]{date}[/bright_blue]",
                 f"[yellow]{trunc_msg}[/yellow]"
@@ -292,13 +292,12 @@ def run_dry_preview(repo_state: dict) -> str:
 def final_summary(total_files: int, total_commits: int, branch: str, timeline_range: str, successes: int, failures: int) -> None:
     """Print a rich final summary panel."""
     table = Table(show_header=False, box=None)
-    table.add_row("✓ Total files processed", str(total_files))
-    table.add_row("✓ Total commits created", str(total_commits))
-    table.add_row("✓ Branch pushed", branch)
+    table.add_row("✓ Total Files Processed", str(total_files))
+    table.add_row("✓ Total Commits Created", str(total_commits))
     if timeline_range != "N/A":
         table.add_row("✓ Timeline range used", timeline_range)
-    table.add_row("✓ Success count", f"[green]{successes}[/green]")
-    table.add_row("✓ Failure count", f"[red]{failures}[/red]" if failures > 0 else "0")
+    table.add_row("✓ Successful Commits", f"[bright_green]{successes}[/bright_green]")
+    table.add_row("✓ Failed Commits", f"[red]{failures}[/red]" if failures > 0 else "0")
 
     panel = Panel(
         Align.center(table),
